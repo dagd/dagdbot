@@ -116,7 +116,7 @@ banIp s chan url = do
   case res of
     Nothing -> sendMsg s chan "No such shorturl found."
     Just (_, _, _, ip, _, _, _, _) -> do
-      updated <- execute conn "insert into blocked_ips(ip_start, ip_end) values(inet6_aton(?), inet6_aton(?))" [ip]
+      updated <- execute conn "insert into blocked_ips(ip_start, ip_end) values(inet6_aton(?), inet6_aton(?))" [ip, ip]
       case updated of
         1 -> sendMsg s chan "Blocked."
         _ -> sendMsg s chan "Sorry, I oopsed."

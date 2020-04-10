@@ -19,6 +19,7 @@ executable dagdbot
                      , bytestring
                      , http-client
                      , http-client-tls
+                     , mysql
                      , mysql-simple
                      , simpleirc
                      , time
