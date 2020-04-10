@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 import Network.SimpleIRC
+import Control.Exception
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 import Data.Time.Clock (UTCTime)
+import Database.MySQL.Base (MySQLError)
 import Database.MySQL.Simple hiding (connect)
 import qualified Database.MySQL.Simple as D (connect)
 import System.Environment (lookupEnv)
@@ -12,29 +14,36 @@ type DatabaseInfo = (String, String, String) -- db, user, pw
 type IrcInfo = (String, String, String, String) -- server, channel, nick, nickserv pw
 type Shorturl = (Integer, B.ByteString, B.ByteString, B.ByteString, UTCTime, Bool, Maybe Bool, Maybe B.ByteString)
 
+genericTry :: MIrc -> B.ByteString -> IO () -> IO ()
+genericTry s chan ioa =
+  catch ioa (\e -> do
+                let err = show (e :: MySQLError)
+                sendMsg s chan (B.pack ("Sorry, I oopsed: " ++ err)))
+
 onMessage :: String -> EventFunc
 onMessage channelStr s m
-  | msg == "!ping" && mChan m == Just channel = do
+  | msg == "!ping" && chan == cfgChan = do
       sendMsg s chan "pang"
-  | "!disable " `B.isPrefixOf` msg && mChan m == Just channel = do
+  | "!disable " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!disable ") msg
-      dropSingle s chan arg
-  | "!disableip " `B.isPrefixOf` msg && mChan m == Just channel = do
+      tryMsg $ dropSingle s chan arg
+  | "!disableip " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!disableip ") msg
-      dropIp s chan arg
-  | "!coshorten " `B.isPrefixOf` msg && mChan m == Just channel = do
+      tryMsg $ dropIp s chan arg
+  | "!coshorten " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!coshorten ") msg
-      coshorten s chan arg
-  | "!banip " `B.isPrefixOf` msg && mChan m == Just channel = do
+      tryMsg $ coshorten s chan arg
+  | "!banip " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!banip ") msg
-      banIp s chan arg
-  | "!unbanip " `B.isPrefixOf` msg && mChan m == Just channel = do
+      tryMsg $ banIp s chan arg
+  | "!unbanip " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!unbanip ") msg
-      unbanIp s chan arg
+      tryMsg $ unbanIp s chan arg
   | otherwise = putStrLn $ show m
   where chan = fromJust $ mChan m
+        cfgChan = B.pack channelStr
         msg = mMsg m
-        channel = B.pack channelStr
+        tryMsg = genericTry s chan
 
 onNumeric :: String -> String -> EventFunc
 onNumeric nick pw s m
