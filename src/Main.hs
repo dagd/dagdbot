@@ -4,8 +4,8 @@ import Control.Exception
 import Data.Maybe
 import qualified Data.ByteString.Char8 as B
 import Data.Time.Clock (UTCTime)
-import Database.MySQL.Base (MySQLError)
-import Database.MySQL.Simple hiding (connect)
+import Database.MySQL.Base (MySQLError, errMessage, errNumber)
+import Database.MySQL.Simple hiding (connect, errMessage)
 import qualified Database.MySQL.Simple as D (connect)
 import System.Environment (lookupEnv)
 
@@ -17,8 +17,12 @@ type Shorturl = (Integer, B.ByteString, B.ByteString, B.ByteString, UTCTime, Boo
 genericTry :: MIrc -> B.ByteString -> IO () -> IO ()
 genericTry s chan ioa =
   catch ioa (\e -> do
-                let err = show (e :: MySQLError)
-                sendMsg s chan (B.pack ("Sorry, I oopsed: " ++ err)))
+                let err = e :: MySQLError
+                let msg =
+                      case errNumber err of
+                        1062 -> "Violation of unique constraint."
+                        _ -> errMessage err
+                sendMsg s chan (B.pack ("Sorry, I oopsed: " ++ msg)))
 
 onMessage :: String -> EventFunc
 onMessage channelStr s m
