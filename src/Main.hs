@@ -31,6 +31,9 @@ onMessage channelStr s m
   | "!disable " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!disable ") msg
       tryMsg $ dropSingle s chan arg
+  | "!enable " `B.isPrefixOf` msg && chan == cfgChan = do
+      let arg = B.drop (B.length "!enable ") msg
+      tryMsg $ undropSingle s chan arg
   | "!disableip " `B.isPrefixOf` msg && chan == cfgChan = do
       let arg = B.drop (B.length "!disableip ") msg
       tryMsg $ dropIp s chan arg
@@ -115,6 +118,14 @@ dropSingle s chan url = do
     n -> do
       sendMsg s chan (res <> " " <> B.pack (show n) <> " other shorturls are currently enabled from the author's IP. Preview follows (type !disableip <original shorturl code> to disable all):")
       preview s chan (take 10 leftover)
+
+undropSingle :: MIrc -> B.ByteString -> B.ByteString -> IO ()
+undropSingle s chan url = do
+  conn <- dbInfo >>= dagddb
+  updated <- execute conn "update shorturls set enabled=1 where shorturl=?" [url]
+  let res = case updated of
+              0 -> "Nothing to do."
+              n -> "Updated " <> B.pack (show n) <> " rows."
 
 dropIp :: MIrc -> B.ByteString -> B.ByteString -> IO ()
 dropIp s chan url = do
