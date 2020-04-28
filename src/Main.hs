@@ -126,6 +126,7 @@ undropSingle s chan url = do
   let res = case updated of
               0 -> "Nothing to do."
               n -> "Updated " <> B.pack (show n) <> " rows."
+  sendMsg s chan res
 
 dropIp :: MIrc -> B.ByteString -> B.ByteString -> IO ()
 dropIp s chan url = do
